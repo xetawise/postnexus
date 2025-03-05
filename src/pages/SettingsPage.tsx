@@ -15,17 +15,17 @@ import { toast } from "@/components/ui/toast-utils";
 import { ArrowLeft, Upload } from "lucide-react";
 
 const SettingsPage = () => {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    name: user?.name || "",
+    fullName: user?.fullName || "",
     username: user?.username || "",
     email: user?.email || "",
     bio: user?.bio || "",
-    website: user?.website || "",
-    location: user?.location || "",
-    profilePicture: user?.profilePicture || "",
+    website: "",
+    location: "",
+    avatar: user?.avatar || "",
     isPrivateAccount: false,
     emailNotifications: true,
     pushNotifications: true,
@@ -49,10 +49,7 @@ const SettingsPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully.",
-    });
+    toast.success("Profile updated successfully.");
   };
 
   const handleProfilePictureChange = (e) => {
@@ -63,13 +60,13 @@ const SettingsPage = () => {
       const url = URL.createObjectURL(file);
       setFormData({
         ...formData,
-        profilePicture: url,
+        avatar: url,
       });
     }
   };
 
   const handleLogout = () => {
-    logout();
+    signOut();
     navigate("/");
   };
 
@@ -100,8 +97,8 @@ const SettingsPage = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="flex flex-col items-center space-y-4">
                     <Avatar className="h-24 w-24">
-                      <AvatarImage src={formData.profilePicture} />
-                      <AvatarFallback>{formData.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={formData.avatar} />
+                      <AvatarFallback>{formData.fullName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="relative">
                       <input
@@ -128,8 +125,8 @@ const SettingsPage = () => {
                       <Label htmlFor="name">Name</Label>
                       <Input
                         id="name"
-                        name="name"
-                        value={formData.name}
+                        name="fullName"
+                        value={formData.fullName}
                         onChange={handleChange}
                       />
                     </div>
@@ -228,7 +225,7 @@ const SettingsPage = () => {
                       />
                     </div>
                     
-                    <Button type="button" onClick={() => toast({ description: "Password changed successfully" })}>
+                    <Button type="button" onClick={() => toast.success("Password changed successfully")}>
                       Change Password
                     </Button>
                     
@@ -276,7 +273,7 @@ const SettingsPage = () => {
                     />
                   </div>
                   
-                  <Button type="button" onClick={() => toast({ description: "Notification preferences saved" })}>
+                  <Button type="button" onClick={() => toast.success("Notification preferences saved")}>
                     Save Preferences
                   </Button>
                 </div>
@@ -305,10 +302,10 @@ const SettingsPage = () => {
                   <div className="border-t pt-4 mt-4">
                     <h3 className="font-medium mb-2">Data and Privacy</h3>
                     <div className="space-y-2">
-                      <Button variant="outline" className="w-full justify-start" onClick={() => toast({ description: "Data download requested" })}>
+                      <Button variant="outline" className="w-full justify-start" onClick={() => toast.success("Data download requested")}>
                         Download Your Data
                       </Button>
-                      <Button variant="outline" className="w-full justify-start text-destructive" onClick={() => toast({ title: "Warning", description: "This action cannot be undone", variant: "destructive" })}>
+                      <Button variant="outline" className="w-full justify-start text-destructive" onClick={() => toast.error("This action cannot be undone")}>
                         Delete Account
                       </Button>
                     </div>

@@ -4,9 +4,9 @@ import { useAuth } from "@/context/AuthContext";
 import LoginPage from "./LoginPage";
 
 const Index = () => {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-2xl">Loading...</div>

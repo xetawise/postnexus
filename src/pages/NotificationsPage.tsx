@@ -66,13 +66,13 @@ const NotificationsPage = () => {
 
     switch (notification.type) {
       case "like":
-        return `${user.name} liked your post`;
+        return `${user.fullName} liked your post`;
       case "comment":
-        return `${user.name} commented on your post: "${notification.text}"`;
+        return `${user.fullName} commented on your post: "${notification.text}"`;
       case "follow":
-        return `${user.name} started following you`;
+        return `${user.fullName} started following you`;
       case "mention":
-        return `${user.name} mentioned you in a post`;
+        return `${user.fullName} mentioned you in a post`;
       default:
         return "New notification";
     }
@@ -116,8 +116,8 @@ const NotificationsPage = () => {
                       <div className="flex items-start gap-3">
                         <Link to={`/profile/${user?.username}`}>
                           <Avatar>
-                            <AvatarImage src={user?.profilePicture} alt={user?.name} />
-                            <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
+                            <AvatarImage src={user?.avatar} alt={user?.fullName} />
+                            <AvatarFallback>{user?.fullName.charAt(0)}</AvatarFallback>
                           </Avatar>
                         </Link>
                         <div className="flex-1">

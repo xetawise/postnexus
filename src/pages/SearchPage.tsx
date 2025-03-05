@@ -18,14 +18,14 @@ const SearchPage = () => {
 
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(query.toLowerCase()) ||
+      user.fullName.toLowerCase().includes(query.toLowerCase()) ||
       user.username.toLowerCase().includes(query.toLowerCase())
   );
 
   const filteredPosts = posts.filter(
     (post) =>
       post.text.toLowerCase().includes(query.toLowerCase()) ||
-      users.find(u => u.id === post.userId)?.name.toLowerCase().includes(query.toLowerCase()) ||
+      users.find(u => u.id === post.userId)?.fullName.toLowerCase().includes(query.toLowerCase()) ||
       users.find(u => u.id === post.userId)?.username.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -62,18 +62,18 @@ const SearchPage = () => {
                     <div className="flex items-center justify-between">
                       <Link to={`/profile/${user.username}`} className="flex items-center space-x-3">
                         <Avatar>
-                          <AvatarImage src={user.profilePicture} alt={user.name} />
-                          <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                          <AvatarImage src={user.avatar} alt={user.fullName} />
+                          <AvatarFallback>{user.fullName.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{user.name}</p>
+                          <p className="font-medium">{user.fullName}</p>
                           <p className="text-sm text-muted-foreground">@{user.username}</p>
                         </div>
                       </Link>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => toast({ title: "Following user", description: `You are now following ${user.name}` })}
+                        onClick={() => toast.success(`You are now following ${user.fullName}`)}
                       >
                         Follow
                       </Button>
