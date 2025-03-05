@@ -169,7 +169,15 @@ export type Database = {
           user_id?: string
           video?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_posts_profiles"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -236,7 +244,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_posts_with_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          user_id: string
+          text: string
+          images: string[]
+          video: string
+          created_at: string
+          is_private: boolean
+          likes: number
+          comments: number
+          shares: number
+          profile_id: string
+          profile_username: string
+          profile_full_name: string
+          profile_avatar: string
+          profile_bio: string
+          profile_is_private: boolean
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

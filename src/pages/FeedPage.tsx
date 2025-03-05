@@ -19,6 +19,7 @@ const FeedPage = () => {
   const fetchPosts = async () => {
     setLoading(true);
     try {
+      // Use the more explicit join syntax
       const { data, error } = await supabase
         .from('posts')
         .select(`

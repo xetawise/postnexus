@@ -34,7 +34,18 @@ const SearchPage = () => {
     likes: post.likes,
     comments: post.comments,
     shares: post.shares,
-    profile: users.find(u => u.id === post.userId) as unknown as Profile
+    profile: {
+      id: post.userId,
+      username: users.find(u => u.id === post.userId)?.username || '',
+      full_name: users.find(u => u.id === post.userId)?.fullName || '',
+      avatar: users.find(u => u.id === post.userId)?.avatar || null,
+      bio: users.find(u => u.id === post.userId)?.bio || null,
+      is_private: false,
+      created_at: '',
+      followers: 0,
+      following: 0,
+      posts: 0
+    }
   }));
 
   const filteredPosts = transformedPosts.filter(
