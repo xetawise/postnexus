@@ -18,7 +18,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ open, setOpen }: SidebarProps) => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const location = useLocation();
   
   const navItems = [
@@ -27,7 +27,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     { icon: PlusSquare, label: "Create", path: "/create" },
     { icon: Heart, label: "Activity", path: "/activity" },
     { icon: BellRing, label: "Notifications", path: "/notifications" },
-    { icon: User, label: "Profile", path: `/profile/${user?.username}` },
+    { icon: User, label: "Profile", path: profile ? `/profile/${profile.username}` : "/profile" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
@@ -92,15 +92,15 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
           "flex items-center",
           open ? "justify-between" : "flex-col space-y-4"
         )}>
-          {open && (
+          {open && profile && (
             <div className="flex items-center space-x-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={user?.avatar} alt={user?.username} />
-                <AvatarFallback>{user?.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={profile.avatar || ''} alt={profile.username} />
+                <AvatarFallback>{profile.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
-                <span className="font-medium text-sm">{user?.fullName}</span>
-                <span className="text-xs text-muted-foreground">@{user?.username}</span>
+                <span className="font-medium text-sm">{profile.full_name}</span>
+                <span className="text-xs text-muted-foreground">@{profile.username}</span>
               </div>
             </div>
           )}
