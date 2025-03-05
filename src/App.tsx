@@ -15,58 +15,61 @@ import SearchPage from "./pages/SearchPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { AuthProvider } from "./context/AuthContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          
-          <Route path="/feed" element={
-            <ProtectedRoute>
-              <FeedPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/create" element={
-            <ProtectedRoute>
-              <CreatePostPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/profile/:username" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/search" element={
-            <ProtectedRoute>
-              <SearchPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/notifications" element={
-            <ProtectedRoute>
-              <NotificationsPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/settings" element={
-            <ProtectedRoute>
-              <SettingsPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            
+            <Route path="/feed" element={
+              <ProtectedRoute>
+                <FeedPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/create" element={
+              <ProtectedRoute>
+                <CreatePostPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/profile/:username" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/search" element={
+              <ProtectedRoute>
+                <SearchPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/notifications" element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
