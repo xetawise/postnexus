@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/toast-utils";
 import PostCard from "@/components/posts/PostCard";
 import { users, posts } from "@/utils/mockData";
 import { Link } from "react-router-dom";
+import { Post, Profile } from "@/lib/supabase";
 
 const SearchPage = () => {
   const [query, setQuery] = useState("");
@@ -21,11 +22,26 @@ const SearchPage = () => {
       user.username.toLowerCase().includes(query.toLowerCase())
   );
 
-  const filteredPosts = posts.filter(
+  // Transform the mock posts to match the Supabase Post type
+  const transformedPosts: Post[] = posts.map(post => ({
+    id: post.id,
+    user_id: post.userId,
+    text: post.text,
+    images: post.images,
+    video: post.video,
+    created_at: post.createdAt,
+    is_private: post.isPrivate,
+    likes: post.likes,
+    comments: post.comments,
+    shares: post.shares,
+    profile: users.find(u => u.id === post.userId) as unknown as Profile
+  }));
+
+  const filteredPosts = transformedPosts.filter(
     (post) =>
       post.text.toLowerCase().includes(query.toLowerCase()) ||
-      users.find(u => u.id === post.userId)?.fullName.toLowerCase().includes(query.toLowerCase()) ||
-      users.find(u => u.id === post.userId)?.username.toLowerCase().includes(query.toLowerCase())
+      post.profile?.full_name.toLowerCase().includes(query.toLowerCase()) ||
+      post.profile?.username.toLowerCase().includes(query.toLowerCase())
   );
 
   return (

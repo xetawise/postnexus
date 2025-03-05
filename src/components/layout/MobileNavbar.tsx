@@ -7,13 +7,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const MobileNavbar = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { profile } = useAuth();
   
   const navItems = [
     { icon: Home, label: "Feed", path: "/feed" },
     { icon: Search, label: "Search", path: "/search" },
     { icon: PlusSquare, label: "Create", path: "/create" },
-    { icon: Heart, label: "Activity", path: "/activity" },
+    { icon: Heart, label: "Activity", path: "/notifications" },
   ];
 
   return (
@@ -33,15 +33,15 @@ const MobileNavbar = () => {
           </Link>
         ))}
         <Link
-          to={`/profile/${user?.username}`}
+          to={`/profile/${profile?.username}`}
           className={cn(
             "flex flex-col items-center justify-center space-y-1 px-4 py-1",
-            location.pathname === `/profile/${user?.username}` ? "text-primary" : "text-muted-foreground"
+            location.pathname === `/profile/${profile?.username}` ? "text-primary" : "text-muted-foreground"
           )}
         >
           <Avatar className="h-6 w-6">
-            <AvatarImage src={user?.avatar} alt={user?.username} />
-            <AvatarFallback>{user?.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={profile?.avatar || ''} alt={profile?.username} />
+            <AvatarFallback>{profile?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <span className="text-xs">Profile</span>
         </Link>

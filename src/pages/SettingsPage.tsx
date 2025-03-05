@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,22 +14,36 @@ import { toast } from "@/components/ui/toast-utils";
 import { ArrowLeft, Upload } from "lucide-react";
 
 const SettingsPage = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut, updateProfile } = useAuth();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || "",
-    username: user?.username || "",
-    email: user?.email || "",
-    bio: user?.bio || "",
+    fullName: "",
+    username: "",
+    email: "",
+    bio: "",
     website: "",
     location: "",
-    avatar: user?.avatar || "",
+    avatar: "",
     isPrivateAccount: false,
     emailNotifications: true,
     pushNotifications: true,
     darkMode: document.documentElement.classList.contains("dark"),
   });
+
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        ...formData,
+        fullName: profile.full_name || "",
+        username: profile.username || "",
+        email: user?.email || "",
+        bio: profile.bio || "",
+        avatar: profile.avatar || "",
+        isPrivateAccount: profile.is_private || false,
+      });
+    }
+  }, [profile, user]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -46,9 +60,23 @@ const SettingsPage = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast.success("Profile updated successfully.");
+    
+    try {
+      await updateProfile({
+        full_name: formData.fullName,
+        username: formData.username,
+        bio: formData.bio,
+        avatar: formData.avatar,
+        is_private: formData.isPrivateAccount
+      });
+      
+      toast.success("Profile updated successfully.");
+    } catch (error) {
+      console.error("Update profile error:", error);
+      toast.error("Failed to update profile");
+    }
   };
 
   const handleProfilePictureChange = (e) => {

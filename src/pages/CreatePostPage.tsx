@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Image, X, File, ArrowLeft } from "lucide-react";
@@ -9,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast-utils";
+import { supabase } from "@/lib/supabase";
 
 const CreatePostPage = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   
   const [postText, setPostText] = useState("");
@@ -52,8 +54,21 @@ const CreatePostPage = () => {
     setIsSubmitting(true);
     
     try {
-      // In a real app, this would be an API call to create a post
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Create post in Supabase
+      const { data, error } = await supabase
+        .from('posts')
+        .insert({
+          user_id: user?.id,
+          text: postText,
+          images: selectedImages,
+          video: selectedVideo,
+          is_private: isPrivate
+        })
+        .select();
+        
+      if (error) {
+        throw error;
+      }
       
       toast.success("Post created successfully!");
       navigate("/feed");
@@ -85,14 +100,14 @@ const CreatePostPage = () => {
         <CardContent className="p-6">
           <div className="flex space-x-4">
             <Avatar className="h-10 w-10 border border-border">
-              <AvatarImage src={user?.avatar} alt={user?.username} />
-              <AvatarFallback>{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={profile?.avatar || ''} alt={profile?.username} />
+              <AvatarFallback>{profile?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             
             <div className="flex-1 space-y-4">
               <div className="flex flex-col space-y-1">
-                <span className="font-medium text-sm">{user?.fullName}</span>
-                <span className="text-xs text-muted-foreground">@{user?.username}</span>
+                <span className="font-medium text-sm">{profile?.full_name}</span>
+                <span className="text-xs text-muted-foreground">@{profile?.username}</span>
               </div>
               
               <Textarea
