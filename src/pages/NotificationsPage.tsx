@@ -1,6 +1,5 @@
 
 import { useState } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,70 +78,68 @@ const NotificationsPage = () => {
   };
 
   return (
-    <MainLayout>
-      <div className="container max-w-3xl mx-auto px-4 py-4">
-        <div className="sticky top-0 bg-background z-10 pb-2">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold">Notifications</h1>
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-              Mark all as read
-            </Button>
-          </div>
-          
-          <Tabs defaultValue="all" onValueChange={setActiveTab} value={activeTab}>
-            <TabsList className="w-full">
-              <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
-              <TabsTrigger value="mentions" className="flex-1">Mentions</TabsTrigger>
-              <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
-            </TabsList>
-          </Tabs>
+    <div className="container max-w-3xl mx-auto px-4 py-4">
+      <div className="sticky top-0 bg-background z-10 pb-2">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Notifications</h1>
+          <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+            Mark all as read
+          </Button>
         </div>
-
-        <div className="mt-4 space-y-3">
-          <TabsContent value={activeTab} className="space-y-3 mt-0">
-            {filteredNotifications.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">No notifications yet</p>
-              </div>
-            ) : (
-              filteredNotifications.map((notification) => {
-                const user = users.find(u => u.id === notification.userId);
-                return (
-                  <Card 
-                    key={notification.id}
-                    className={`overflow-hidden ${!notification.read ? 'border-l-4 border-l-primary' : ''}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Link to={`/profile/${user?.username}`}>
-                          <Avatar>
-                            <AvatarImage src={user?.avatar} alt={user?.fullName} />
-                            <AvatarFallback>{user?.fullName.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                        </Link>
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <span className="font-medium">{getNotificationText(notification)}</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatDistance(new Date(notification.createdAt), new Date(), { addSuffix: true })}
-                          </p>
-                        </div>
-                        {notification.type === "follow" && (
-                          <Button size="sm" variant="outline">
-                            Follow
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </TabsContent>
-        </div>
+        
+        <Tabs defaultValue="all" onValueChange={setActiveTab} value={activeTab}>
+          <TabsList className="w-full">
+            <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
+            <TabsTrigger value="mentions" className="flex-1">Mentions</TabsTrigger>
+            <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
-    </MainLayout>
+
+      <div className="mt-4 space-y-3">
+        <TabsContent value={activeTab} className="space-y-3 mt-0">
+          {filteredNotifications.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No notifications yet</p>
+            </div>
+          ) : (
+            filteredNotifications.map((notification) => {
+              const user = users.find(u => u.id === notification.userId);
+              return (
+                <Card 
+                  key={notification.id}
+                  className={`overflow-hidden ${!notification.read ? 'border-l-4 border-l-primary' : ''}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <Link to={`/profile/${user?.username}`}>
+                        <Avatar>
+                          <AvatarImage src={user?.avatar} alt={user?.fullName} />
+                          <AvatarFallback>{user?.fullName?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                      </Link>
+                      <div className="flex-1">
+                        <p className="text-sm">
+                          <span className="font-medium">{getNotificationText(notification)}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {formatDistance(new Date(notification.createdAt), new Date(), { addSuffix: true })}
+                        </p>
+                      </div>
+                      {notification.type === "follow" && (
+                        <Button size="sm" variant="outline">
+                          Follow
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </TabsContent>
+      </div>
+    </div>
   );
 };
 
