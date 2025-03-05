@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { User, UserPlus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -6,7 +5,7 @@ import { getRecommendedUsers } from "@/utils/mockData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/components/ui/toast-utils";
 
 const RecommendedUsers = () => {
   const { user } = useAuth();

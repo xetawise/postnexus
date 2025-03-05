@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import { users, isUserFollowing } from "@/utils/mockData";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/components/ui/toast-utils";
 
 interface ProfileHeaderProps {
   username: string;
@@ -15,7 +14,6 @@ const ProfileHeader = ({ username }: ProfileHeaderProps) => {
   const { user: currentUser } = useAuth();
   const [following, setFollowing] = useState(false);
   
-  // Find the user profile
   const userProfile = users.find(user => user.username === username);
   
   if (!userProfile) {

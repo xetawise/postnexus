@@ -1,11 +1,10 @@
-
 import { useState, useRef } from "react";
 import { Image, X, File, Send } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/components/ui/toast-utils";
 
 const PostForm = () => {
   const { user } = useAuth();

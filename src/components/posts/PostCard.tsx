@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistance } from "date-fns";
-import { Heart, MessageCircle, Share2, MoreHorizontal, HeartFill } from "lucide-react";
+import { Heart, MessageCircle, Share2, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { getUserById } from "@/utils/mockData";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/components/ui/toast-utils";
 import { useAuth } from "@/context/AuthContext";
 
 interface PostCardProps {
@@ -135,7 +135,7 @@ const PostCard = ({ post }: PostCardProps) => {
           className="flex items-center space-x-1 rounded-full px-4"
         >
           {liked ? (
-            <HeartFill size={18} className="text-red-500" />
+            <Heart size={18} className="text-red-500 fill-current" />
           ) : (
             <Heart size={18} />
           )}

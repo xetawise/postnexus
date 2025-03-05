@@ -1,9 +1,7 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/components/ui/toast-utils";
 
-// We'll update this with Supabase integration later
 type User = {
   id: string;
   email: string;
