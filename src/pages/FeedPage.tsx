@@ -1,41 +1,53 @@
 
 import { useState, useEffect } from "react";
-import { posts, getUserById } from "@/utils/mockData";
 import { useAuth } from "@/context/AuthContext";
 import PostCard from "@/components/posts/PostCard";
 import PostForm from "@/components/posts/PostForm";
 import RecommendedUsers from "@/components/user/RecommendedUsers";
+import { supabase, type Post } from "@/lib/supabase";
+import { toast } from "@/components/ui/toast-utils";
 
 const FeedPage = () => {
   const { user } = useAuth();
-  const [feedPosts, setFeedPosts] = useState<typeof posts>([]);
+  const [feedPosts, setFeedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Simulate fetching posts
-    const fetchPosts = async () => {
-      setLoading(true);
-      try {
-        // In a real app, this would be an API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        // Sort posts by date (newest first)
-        const sortedPosts = [...posts].sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        setFeedPosts(sortedPosts);
-      } catch (error) {
-        console.error("Error fetching posts:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchPosts();
-  }, []);
+  }, [user]);
+  
+  const fetchPosts = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profile:profiles(*)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching posts:", error);
+        toast.error("Error fetching posts");
+        return;
+      }
+      
+      setFeedPosts(data as Post[]);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePostCreated = () => {
+    fetchPosts();
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
-      <PostForm />
+      <PostForm onPostCreated={handlePostCreated} />
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
@@ -54,7 +66,7 @@ const FeedPage = () => {
             <>
               {feedPosts.length > 0 ? (
                 feedPosts.map(post => (
-                  <PostCard key={post.id} post={post} />
+                  <PostCard key={post.id} post={post} onPostUpdated={fetchPosts} />
                 ))
               ) : (
                 <div className="text-center py-10">

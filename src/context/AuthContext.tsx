@@ -2,65 +2,62 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/toast-utils";
-
-type User = {
-  id: string;
-  email: string;
-  username: string;
-  fullName: string;
-  avatar?: string;
-  bio?: string;
-  isPrivate: boolean;
-  createdAt: string;
-};
+import { supabase, type Profile } from "@/lib/supabase";
+import { Session, User } from "@supabase/supabase-js";
 
 type AuthContextType = {
   user: User | null;
+  profile: Profile | null;
   loading: boolean;
+  session: Session | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, username: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: Partial<Profile>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock user data for demonstration (will be replaced by Supabase)
-const mockUsers = [
-  {
-    id: "1",
-    email: "john@example.com",
-    username: "johndoe",
-    fullName: "John Doe",
-    avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=400&h=400&auto=format&fit=crop&q=80",
-    bio: "Software developer passionate about UX/UI design",
-    isPrivate: false,
-    createdAt: "2023-01-15T00:00:00Z",
-  },
-  {
-    id: "2",
-    email: "jane@example.com",
-    username: "janesmith",
-    fullName: "Jane Smith",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&auto=format&fit=crop&q=80",
-    bio: "Digital artist and photographer",
-    isPrivate: true,
-    createdAt: "2023-02-20T00:00:00Z",
-  },
-];
-
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Check for existing session on mount
   useEffect(() => {
-    const checkSession = async () => {
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user || null);
+        
+        if (newSession?.user) {
+          await fetchUserProfile(newSession.user.id);
+        } else {
+          setProfile(null);
+        }
+        
+        setLoading(false);
+      }
+    );
+
+    // Initial session check
+    const initializeAuth = async () => {
       try {
-        const storedUser = localStorage.getItem("nexus-user");
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          setLoading(false);
+          return;
+        }
+        
+        if (initialSession) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          
+          await fetchUserProfile(initialSession.user.id);
         }
       } catch (error) {
         console.error("Session check error:", error);
@@ -69,23 +66,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    checkSession();
+    initializeAuth();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return;
+      }
+      
+      setProfile(data as Profile);
+    } catch (error) {
+      console.error("Profile fetch error:", error);
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      // Mock authentication (will be replaced by Supabase)
-      const foundUser = mockUsers.find(u => u.email === email);
       
-      if (foundUser) {
-        setUser(foundUser);
-        localStorage.setItem("nexus-user", JSON.stringify(foundUser));
-        toast.success("Signed in successfully");
-        navigate("/feed");
-      } else {
-        toast.error("Invalid credentials");
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        toast.error(error.message);
+        return;
       }
+      
+      toast.success("Signed in successfully");
+      navigate("/feed");
     } catch (error) {
       console.error("Sign in error:", error);
       toast.error("Failed to sign in");
@@ -103,18 +125,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setLoading(true);
       
-      // Mock signup (will be replaced by Supabase)
-      const newUser: User = {
-        id: Date.now().toString(),
+      const { data, error } = await supabase.auth.signUp({
         email,
-        username,
-        fullName,
-        isPrivate: false,
-        createdAt: new Date().toISOString(),
-      };
+        password,
+        options: {
+          data: {
+            username: username,
+            full_name: fullName
+          }
+        }
+      });
       
-      setUser(newUser);
-      localStorage.setItem("nexus-user", JSON.stringify(newUser));
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      
       toast.success("Account created successfully");
       navigate("/feed");
     } catch (error) {
@@ -128,8 +154,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      
       setUser(null);
-      localStorage.removeItem("nexus-user");
+      setProfile(null);
+      setSession(null);
       toast.success("Signed out successfully");
       navigate("/");
     } catch (error) {
@@ -140,13 +174,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const updateProfile = async (data: Partial<User>) => {
+  const updateProfile = async (data: Partial<Profile>) => {
     try {
       setLoading(true);
       if (user) {
-        const updatedUser = { ...user, ...data };
-        setUser(updatedUser);
-        localStorage.setItem("nexus-user", JSON.stringify(updatedUser));
+        const { error } = await supabase
+          .from('profiles')
+          .update(data)
+          .eq('id', user.id);
+        
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        
+        await fetchUserProfile(user.id);
         toast.success("Profile updated successfully");
       }
     } catch (error) {
@@ -161,7 +203,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     <AuthContext.Provider
       value={{
         user,
+        profile,
         loading,
+        session,
         signIn,
         signUp,
         signOut,

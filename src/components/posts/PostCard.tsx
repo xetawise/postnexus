@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { formatDistance } from "date-fns";
 import { Heart, MessageCircle, Share2, MoreHorizontal } from "lucide-react";
@@ -7,49 +7,110 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { getUserById } from "@/utils/mockData";
 import { toast } from "@/components/ui/toast-utils";
 import { useAuth } from "@/context/AuthContext";
+import { supabase, type Post } from "@/lib/supabase";
 
 interface PostCardProps {
-  post: {
-    id: string;
-    userId: string;
-    text: string;
-    images: string[];
-    video: string | null;
-    createdAt: string;
-    isPrivate: boolean;
-    likes: number;
-    comments: number;
-    shares: number;
-  };
+  post: Post;
+  onPostUpdated?: () => void;
 }
 
-const PostCard = ({ post }: PostCardProps) => {
-  const { user: currentUser } = useAuth();
+const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
+  const { user } = useAuth();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [showComments, setShowComments] = useState(false);
   
-  const user = getUserById(post.userId);
-  
-  if (!user) return null;
+  useEffect(() => {
+    // Check if user has liked this post
+    const checkIfLiked = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('post_likes')
+        .select('*')
+        .eq('post_id', post.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error checking like status:", error);
+        return;
+      }
+      
+      setLiked(!!data);
+    };
+    
+    checkIfLiked();
+  }, [post.id, user]);
   
   const formattedDate = formatDistance(
-    new Date(post.createdAt),
+    new Date(post.created_at),
     new Date(),
     { addSuffix: true }
   );
   
-  const handleLike = () => {
-    if (liked) {
-      setLikeCount(prev => prev - 1);
-    } else {
-      setLikeCount(prev => prev + 1);
-      toast.success("Post liked!");
+  const handleLike = async () => {
+    if (!user) {
+      toast.error("You must be logged in to like posts");
+      return;
     }
-    setLiked(!liked);
+    
+    try {
+      if (liked) {
+        // Unlike post
+        const { error } = await supabase
+          .from('post_likes')
+          .delete()
+          .eq('post_id', post.id)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+        
+        setLikeCount(prev => prev - 1);
+        setLiked(false);
+      } else {
+        // Like post
+        const { error } = await supabase
+          .from('post_likes')
+          .insert({
+            post_id: post.id,
+            user_id: user.id
+          });
+        
+        if (error) throw error;
+        
+        setLikeCount(prev => prev + 1);
+        setLiked(true);
+        toast.success("Post liked!");
+        
+        // Update the post's like count
+        await supabase
+          .from('posts')
+          .update({ likes: likeCount + 1 })
+          .eq('id', post.id);
+        
+        // Create notification for the post owner
+        if (user.id !== post.user_id) {
+          await supabase
+            .from('notifications')
+            .insert({
+              user_id: post.user_id,
+              type: 'like',
+              initiator_id: user.id,
+              content_id: post.id
+            });
+        }
+      }
+      
+      if (onPostUpdated) {
+        onPostUpdated();
+      }
+    } catch (error: any) {
+      toast.error("Failed to update like: " + error.message);
+      console.error(error);
+    }
   };
   
   const handleComment = () => {
@@ -57,21 +118,24 @@ const PostCard = ({ post }: PostCardProps) => {
   };
   
   const handleShare = () => {
-    toast.success("Post shared!");
+    navigator.clipboard.writeText(window.location.origin + `/post/${post.id}`);
+    toast.success("Post link copied to clipboard!");
   };
+
+  if (!post.profile) return null;
 
   return (
     <Card className="mb-6 overflow-hidden glass-card">
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-center">
-          <Link to={`/profile/${user.username}`} className="flex items-center space-x-3">
+          <Link to={`/profile/${post.profile.username}`} className="flex items-center space-x-3">
             <Avatar className="h-10 w-10 border border-border">
-              <AvatarImage src={user.avatar} alt={user.username} />
-              <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={post.profile.avatar || undefined} alt={post.profile.username} />
+              <AvatarFallback>{post.profile.username.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <span className="font-medium text-sm">{user.fullName}</span>
-              <span className="text-xs text-muted-foreground">@{user.username}</span>
+              <span className="font-medium text-sm">{post.profile.full_name}</span>
+              <span className="text-xs text-muted-foreground">@{post.profile.username}</span>
             </div>
           </Link>
           <div className="flex items-center space-x-1">

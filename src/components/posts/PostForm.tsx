@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Image, X, File, Send } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -5,14 +6,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast-utils";
+import { supabase } from "@/lib/supabase";
 
-const PostForm = () => {
-  const { user } = useAuth();
+interface PostFormProps {
+  onPostCreated?: () => void;
+}
+
+const PostForm = ({ onPostCreated }: PostFormProps) => {
+  const { user, profile } = useAuth();
   const [postText, setPostText] = useState("");
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -20,24 +28,49 @@ const PostForm = () => {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
-      const fileURLs = filesArray.map(file => URL.createObjectURL(file));
-      setSelectedImages(prev => [...prev, ...fileURLs]);
+      setSelectedImages(prev => [...prev, ...filesArray]);
+      
+      const newImageUrls = filesArray.map(file => URL.createObjectURL(file));
+      setImagePreviewUrls(prev => [...prev, ...newImageUrls]);
     }
   };
   
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const fileURL = URL.createObjectURL(e.target.files[0]);
-      setSelectedVideo(fileURL);
+      const file = e.target.files[0];
+      setSelectedVideo(file);
+      setVideoPreviewUrl(URL.createObjectURL(file));
     }
   };
   
   const removeImage = (indexToRemove: number) => {
     setSelectedImages(prev => prev.filter((_, index) => index !== indexToRemove));
+    setImagePreviewUrls(prev => prev.filter((_, index) => index !== indexToRemove));
   };
   
   const removeVideo = () => {
     setSelectedVideo(null);
+    setVideoPreviewUrl(null);
+  };
+  
+  const uploadFile = async (file: File, bucket: string) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const filePath = `${user?.id}/${fileName}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file);
+      
+    if (error) {
+      throw error;
+    }
+    
+    const { data: publicUrl } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+      
+    return publicUrl.publicUrl;
   };
   
   const handleSubmit = async () => {
@@ -46,19 +79,77 @@ const PostForm = () => {
       return;
     }
     
+    if (!user) {
+      toast.error("You must be logged in to create a post");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
-      // In a real app, this would be an API call to create a post
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Upload images if any
+      const uploadedImageUrls: string[] = [];
+      if (selectedImages.length > 0) {
+        // Create images bucket if it doesn't exist
+        const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('images');
+        
+        if (bucketError && bucketError.message.includes('does not exist')) {
+          await supabase.storage.createBucket('images', {
+            public: true
+          });
+        }
+        
+        for (const image of selectedImages) {
+          const imageUrl = await uploadFile(image, 'images');
+          uploadedImageUrls.push(imageUrl);
+        }
+      }
+      
+      // Upload video if any
+      let uploadedVideoUrl: string | null = null;
+      if (selectedVideo) {
+        // Create videos bucket if it doesn't exist
+        const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('videos');
+        
+        if (bucketError && bucketError.message.includes('does not exist')) {
+          await supabase.storage.createBucket('videos', {
+            public: true
+          });
+        }
+        
+        uploadedVideoUrl = await uploadFile(selectedVideo, 'videos');
+      }
+      
+      // Create post
+      const { data, error } = await supabase
+        .from('posts')
+        .insert({
+          user_id: user.id,
+          text: postText,
+          images: uploadedImageUrls,
+          video: uploadedVideoUrl,
+          is_private: isPrivate
+        })
+        .select();
+      
+      if (error) {
+        toast.error("Failed to create post: " + error.message);
+        return;
+      }
       
       toast.success("Post created successfully!");
       setPostText("");
       setSelectedImages([]);
+      setImagePreviewUrls([]);
       setSelectedVideo(null);
+      setVideoPreviewUrl(null);
       setIsPrivate(false);
-    } catch (error) {
-      toast.error("Failed to create post");
+      
+      if (onPostCreated) {
+        onPostCreated();
+      }
+    } catch (error: any) {
+      toast.error("Failed to create post: " + error.message);
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -70,8 +161,8 @@ const PostForm = () => {
       <CardContent className="p-4">
         <div className="flex space-x-4">
           <Avatar className="h-10 w-10 border border-border">
-            <AvatarImage src={user?.avatar} alt={user?.username} />
-            <AvatarFallback>{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={profile?.avatar || undefined} alt={profile?.username} />
+            <AvatarFallback>{profile?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           
           <div className="flex-1">
@@ -82,9 +173,9 @@ const PostForm = () => {
               className="w-full min-h-[100px] bg-transparent border-none focus:outline-none resize-none text-sm placeholder:text-muted-foreground"
             />
             
-            {selectedImages.length > 0 && (
+            {imagePreviewUrls.length > 0 && (
               <div className="grid grid-cols-2 gap-2 mt-2">
-                {selectedImages.map((image, index) => (
+                {imagePreviewUrls.map((image, index) => (
                   <div key={index} className="relative">
                     <img 
                       src={image} 
@@ -104,10 +195,10 @@ const PostForm = () => {
               </div>
             )}
             
-            {selectedVideo && (
+            {videoPreviewUrl && (
               <div className="relative mt-2">
                 <video 
-                  src={selectedVideo} 
+                  src={videoPreviewUrl} 
                   controls 
                   className="w-full h-auto rounded-lg"
                 />
@@ -150,6 +241,7 @@ const PostForm = () => {
             className="hidden"
             ref={videoInputRef}
             onChange={handleVideoSelect}
+            disabled={selectedVideo !== null}
           />
           <Button
             variant="ghost"
