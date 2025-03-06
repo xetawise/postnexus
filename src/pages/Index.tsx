@@ -2,6 +2,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import LoginPage from "./LoginPage";
+import { Loader2 } from "lucide-react";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -9,7 +10,8 @@ const Index = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-2xl">Loading...</div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">Loading your session...</span>
       </div>
     );
   }

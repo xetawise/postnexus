@@ -23,10 +23,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const navigate = useNavigate();
 
+  // Load initial session only once when component mounts
   useEffect(() => {
-    // Set up auth state change listener
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          setLoading(false);
+          setInitialLoadComplete(true);
+          return;
+        }
+        
+        if (initialSession) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          
+          await fetchUserProfile(initialSession.user.id);
+        }
+      } catch (error) {
+        console.error("Session check error:", error);
+      } finally {
+        setLoading(false);
+        setInitialLoadComplete(true);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  // Set up auth state change listener after initial load
+  useEffect(() => {
+    if (!initialLoadComplete) return;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         setSession(newSession);
@@ -42,36 +75,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Initial session check
-    const initializeAuth = async () => {
-      try {
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Error getting session:", error);
-          setLoading(false);
-          return;
-        }
-        
-        if (initialSession) {
-          setSession(initialSession);
-          setUser(initialSession.user);
-          
-          await fetchUserProfile(initialSession.user.id);
-        }
-      } catch (error) {
-        console.error("Session check error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [initialLoadComplete]);
 
   const fetchUserProfile = async (userId: string) => {
     try {
