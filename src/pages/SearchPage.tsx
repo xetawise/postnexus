@@ -12,11 +12,13 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { Post, Profile } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 const SearchPage = () => {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("users");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const { user } = useAuth(); // Use the Auth context to get the current user
 
   // Debounce search query to prevent excessive API calls
   useEffect(() => {
@@ -78,9 +80,14 @@ const SearchPage = () => {
 
   const handleFollowUser = async (userId: string) => {
     try {
+      if (!user) {
+        toast.error("You must be logged in to follow users");
+        return;
+      }
+      
       const { error } = await supabase
         .from('user_relationships')
-        .insert({ follower_id: supabase.auth.getUser()?.data.user?.id, following_id: userId });
+        .insert({ follower_id: user.id, following_id: userId });
         
       if (error) {
         console.error("Error following user:", error);
