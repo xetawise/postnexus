@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,52 +8,92 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast-utils";
 import PostCard from "@/components/posts/PostCard";
-import { users, posts } from "@/utils/mockData";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
 import { Post, Profile } from "@/lib/supabase";
 
 const SearchPage = () => {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("users");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.fullName.toLowerCase().includes(query.toLowerCase()) ||
-      user.username.toLowerCase().includes(query.toLowerCase())
-  );
+  // Debounce search query to prevent excessive API calls
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [query]);
 
-  // Transform the mock posts to match the Supabase Post type
-  const transformedPosts: Post[] = posts.map(post => ({
-    id: post.id,
-    user_id: post.userId,
-    text: post.text,
-    images: post.images,
-    video: post.video,
-    created_at: post.createdAt,
-    is_private: post.isPrivate,
-    likes: post.likes,
-    comments: post.comments,
-    shares: post.shares,
-    profile: {
-      id: post.userId,
-      username: users.find(u => u.id === post.userId)?.username || '',
-      full_name: users.find(u => u.id === post.userId)?.fullName || '',
-      avatar: users.find(u => u.id === post.userId)?.avatar || null,
-      bio: users.find(u => u.id === post.userId)?.bio || null,
-      is_private: false,
-      created_at: '',
-      followers: 0,
-      following: 0,
-      posts: 0
+  // Fetch users based on search query
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['searchUsers', debouncedQuery],
+    queryFn: async () => {
+      if (!debouncedQuery) return [];
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`username.ilike.%${debouncedQuery}%,full_name.ilike.%${debouncedQuery}%`)
+        .limit(20);
+        
+      if (error) {
+        console.error("Error searching users:", error);
+        toast.error("Failed to search users");
+        return [];
+      }
+      
+      return data as Profile[];
+    },
+    enabled: debouncedQuery.length > 0
+  });
+
+  // Fetch posts based on search query
+  const { data: posts = [], isLoading: postsLoading } = useQuery({
+    queryKey: ['searchPosts', debouncedQuery],
+    queryFn: async () => {
+      if (!debouncedQuery) return [];
+      
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profile:profiles(*)
+        `)
+        .or(`text.ilike.%${debouncedQuery}%`)
+        .order('created_at', { ascending: false })
+        .limit(20);
+        
+      if (error) {
+        console.error("Error searching posts:", error);
+        toast.error("Failed to search posts");
+        return [];
+      }
+      
+      return data as Post[];
+    },
+    enabled: debouncedQuery.length > 0
+  });
+
+  const handleFollowUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_relationships')
+        .insert({ follower_id: supabase.auth.getUser()?.data.user?.id, following_id: userId });
+        
+      if (error) {
+        console.error("Error following user:", error);
+        toast.error("Failed to follow user");
+        return;
+      }
+      
+      toast.success("You are now following this user");
+    } catch (error) {
+      console.error("Error following user:", error);
+      toast.error("Failed to follow user");
     }
-  }));
-
-  const filteredPosts = transformedPosts.filter(
-    (post) =>
-      post.text.toLowerCase().includes(query.toLowerCase()) ||
-      post.profile?.full_name.toLowerCase().includes(query.toLowerCase()) ||
-      post.profile?.username.toLowerCase().includes(query.toLowerCase())
-  );
+  };
 
   return (
     <div className="container max-w-3xl mx-auto px-4 py-4">
@@ -78,27 +118,36 @@ const SearchPage = () => {
 
       <div className="mt-4">
         <TabsContent value="users" className="space-y-4">
-          {query && filteredUsers.length === 0 ? (
+          {usersLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((item) => (
+                <div 
+                  key={item} 
+                  className="h-24 glass-card animate-pulse rounded-xl"
+                ></div>
+              ))}
+            </div>
+          ) : debouncedQuery && users.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No users found</p>
           ) : (
-            filteredUsers.map((user) => (
+            users.map((user) => (
               <Card key={user.id} className="overflow-hidden">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <Link to={`/profile/${user.username}`} className="flex items-center space-x-3">
                       <Avatar>
-                        <AvatarImage src={user.avatar} alt={user.fullName} />
-                        <AvatarFallback>{user.fullName.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={user.avatar || ''} alt={user.full_name} />
+                        <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{user.fullName}</p>
+                        <p className="font-medium">{user.full_name}</p>
                         <p className="text-sm text-muted-foreground">@{user.username}</p>
                       </div>
                     </Link>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => toast.success(`You are now following ${user.fullName}`)}
+                      onClick={() => handleFollowUser(user.id)}
                     >
                       Follow
                     </Button>
@@ -111,10 +160,19 @@ const SearchPage = () => {
         </TabsContent>
         
         <TabsContent value="posts" className="space-y-4">
-          {query && filteredPosts.length === 0 ? (
+          {postsLoading ? (
+            <div className="space-y-4">
+              {[1, 2].map((item) => (
+                <div 
+                  key={item} 
+                  className="h-64 glass-card animate-pulse rounded-xl"
+                ></div>
+              ))}
+            </div>
+          ) : debouncedQuery && posts.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No posts found</p>
           ) : (
-            filteredPosts.map((post) => (
+            posts.map((post) => (
               <PostCard key={post.id} post={post} />
             ))
           )}

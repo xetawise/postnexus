@@ -1,47 +1,159 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { getUserById, getPostsByUserId } from "@/utils/mockData";
 import { useAuth } from "@/context/AuthContext";
 import ProfileHeader from "@/components/user/ProfileHeader";
 import PostCard from "@/components/posts/PostCard";
 import RecommendedUsers from "@/components/user/RecommendedUsers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
+import { Post, Profile } from "@/lib/supabase";
+import { toast } from "@/components/ui/toast-utils";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const { user: currentUser } = useAuth();
-  const [userPosts, setUserPosts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("posts");
   
-  useEffect(() => {
-    const fetchUserPosts = async () => {
-      if (!username) return;
+  // Fetch user profile data
+  const { 
+    data: userProfile, 
+    isLoading: profileLoading, 
+    error: profileError 
+  } = useQuery({
+    queryKey: ['profile', username],
+    queryFn: async () => {
+      if (!username) return null;
       
-      setLoading(true);
-      try {
-        // In a real app, this would be an API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('username', username)
+        .maybeSingle();
         
-        const user = users.find(u => u.username === username);
-        if (user) {
-          const posts = getPostsByUserId(user.id);
-          // Sort posts by date (newest first)
-          const sortedPosts = [...posts].sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-          setUserPosts(sortedPosts);
-        }
-      } catch (error) {
-        console.error("Error fetching user posts:", error);
-      } finally {
-        setLoading(false);
+      if (error) {
+        console.error("Error fetching profile:", error);
+        toast.error("Failed to load profile");
+        throw error;
       }
-    };
-    
-    fetchUserPosts();
-  }, [username]);
+      
+      return data as Profile | null;
+    },
+    enabled: !!username
+  });
   
+  // Fetch user posts
+  const { 
+    data: userPosts = [], 
+    isLoading: postsLoading
+  } = useQuery({
+    queryKey: ['userPosts', userProfile?.id],
+    queryFn: async () => {
+      if (!userProfile?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profile:profiles(*)
+        `)
+        .eq('user_id', userProfile.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error("Error fetching posts:", error);
+        toast.error("Failed to load posts");
+        return [];
+      }
+      
+      return data as Post[];
+    },
+    enabled: !!userProfile?.id
+  });
+
+  // Fetch posts liked by user
+  const { 
+    data: likedPosts = [], 
+    isLoading: likedPostsLoading 
+  } = useQuery({
+    queryKey: ['likedPosts', userProfile?.id],
+    queryFn: async () => {
+      if (!userProfile?.id) return [];
+      
+      // Get liked post IDs first
+      const { data: likedPostsData, error: likesError } = await supabase
+        .from('post_likes')
+        .select('post_id')
+        .eq('user_id', userProfile.id);
+        
+      if (likesError) {
+        console.error("Error fetching liked posts:", likesError);
+        return [];
+      }
+      
+      // If no liked posts, return empty array
+      if (!likedPostsData.length) return [];
+      
+      // Get the actual posts
+      const postIds = likedPostsData.map(like => like.post_id);
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profile:profiles(*)
+        `)
+        .in('id', postIds)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error("Error fetching liked posts details:", error);
+        return [];
+      }
+      
+      return data as Post[];
+    },
+    enabled: activeTab === 'likes' && !!userProfile?.id
+  });
+
+  // Fetch posts with media
+  const { 
+    data: mediaPosts = [], 
+    isLoading: mediaPostsLoading 
+  } = useQuery({
+    queryKey: ['mediaPosts', userProfile?.id],
+    queryFn: async () => {
+      if (!userProfile?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profile:profiles(*)
+        `)
+        .eq('user_id', userProfile.id)
+        .or('array_length(images,1).gt.0,video.is.not.null')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error("Error fetching media posts:", error);
+        return [];
+      }
+      
+      return data as Post[];
+    },
+    enabled: activeTab === 'media' && !!userProfile?.id
+  });
+  
+  if (profileError) {
+    return (
+      <div className="text-center py-10">
+        <h2 className="text-xl font-semibold">Error loading profile</h2>
+        <p className="text-muted-foreground mt-2">Please try again later</p>
+      </div>
+    );
+  }
+
   if (!username) {
     return (
       <div className="text-center py-10">
@@ -50,16 +162,26 @@ const ProfilePage = () => {
     );
   }
   
-  // Find the user from the mock data
-  const users = Object.values(getUserById).filter(Boolean);
+  const isLoading = profileLoading || 
+    (activeTab === 'posts' && postsLoading) || 
+    (activeTab === 'media' && mediaPostsLoading) || 
+    (activeTab === 'likes' && likedPostsLoading);
 
   return (
     <div className="max-w-2xl mx-auto">
-      <ProfileHeader username={username} />
+      {profileLoading ? (
+        <div className="h-64 glass-card animate-pulse rounded-xl mb-6"></div>
+      ) : userProfile ? (
+        <ProfileHeader profile={userProfile} />
+      ) : (
+        <div className="text-center py-10 glass-card mb-6">
+          <h2 className="text-xl font-semibold">User not found</h2>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
-          <Tabs defaultValue="posts" className="w-full">
+          <Tabs defaultValue="posts" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full rounded-xl mb-4">
               <TabsTrigger value="posts" className="flex-1 rounded-lg">Posts</TabsTrigger>
               <TabsTrigger value="media" className="flex-1 rounded-lg">Media</TabsTrigger>
@@ -67,7 +189,7 @@ const ProfilePage = () => {
             </TabsList>
             
             <TabsContent value="posts">
-              {loading ? (
+              {isLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((item) => (
                     <div 
@@ -92,7 +214,7 @@ const ProfilePage = () => {
             </TabsContent>
             
             <TabsContent value="media">
-              {loading ? (
+              {isLoading ? (
                 <div className="space-y-4">
                   {[1, 2].map((item) => (
                     <div 
@@ -102,14 +224,22 @@ const ProfilePage = () => {
                   ))}
                 </div>
               ) : (
-                <div className="glass-card p-6 text-center">
-                  <p className="text-muted-foreground">Media posts will be displayed here.</p>
-                </div>
+                <>
+                  {mediaPosts.length > 0 ? (
+                    mediaPosts.map(post => (
+                      <PostCard key={post.id} post={post} />
+                    ))
+                  ) : (
+                    <div className="glass-card p-6 text-center">
+                      <p className="text-muted-foreground">No media posts yet.</p>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
             
             <TabsContent value="likes">
-              {loading ? (
+              {isLoading ? (
                 <div className="space-y-4">
                   {[1, 2].map((item) => (
                     <div 
@@ -119,9 +249,17 @@ const ProfilePage = () => {
                   ))}
                 </div>
               ) : (
-                <div className="glass-card p-6 text-center">
-                  <p className="text-muted-foreground">Liked posts will be displayed here.</p>
-                </div>
+                <>
+                  {likedPosts.length > 0 ? (
+                    likedPosts.map(post => (
+                      <PostCard key={post.id} post={post} />
+                    ))
+                  ) : (
+                    <div className="glass-card p-6 text-center">
+                      <p className="text-muted-foreground">No liked posts yet.</p>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
           </Tabs>
