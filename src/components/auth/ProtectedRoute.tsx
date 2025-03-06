@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/components/ui/toast-utils";
+import AppLayout from "../layout/AppLayout";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -27,7 +28,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  return user ? <>{children}</> : null;
+  return user ? <AppLayout>{children}</AppLayout> : null;
 };
 
 export default ProtectedRoute;
