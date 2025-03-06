@@ -115,7 +115,7 @@ const SearchPage = () => {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <Tabs defaultValue="users" onValueChange={setActiveTab} value={activeTab}>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full">
             <TabsTrigger value="users" className="flex-1">Users</TabsTrigger>
             <TabsTrigger value="posts" className="flex-1">Posts</TabsTrigger>
@@ -124,66 +124,70 @@ const SearchPage = () => {
       </div>
 
       <div className="mt-4">
-        <TabsContent value="users" className="space-y-4">
-          {usersLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((item) => (
-                <div 
-                  key={item} 
-                  className="h-24 glass-card animate-pulse rounded-xl"
-                ></div>
-              ))}
-            </div>
-          ) : debouncedQuery && users.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No users found</p>
-          ) : (
-            users.map((user) => (
-              <Card key={user.id} className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <Link to={`/profile/${user.username}`} className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarImage src={user.avatar || ''} alt={user.full_name} />
-                        <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{user.full_name}</p>
-                        <p className="text-sm text-muted-foreground">@{user.username}</p>
-                      </div>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleFollowUser(user.id)}
-                    >
-                      Follow
-                    </Button>
-                  </div>
-                  {user.bio && <p className="mt-2 text-sm">{user.bio}</p>}
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
+        {activeTab === "users" && (
+          <div className="space-y-4">
+            {usersLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((item) => (
+                  <div 
+                    key={item} 
+                    className="h-24 glass-card animate-pulse rounded-xl"
+                  ></div>
+                ))}
+              </div>
+            ) : debouncedQuery && users.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No users found</p>
+            ) : (
+              users.map((user) => (
+                <Card key={user.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <Link to={`/profile/${user.username}`} className="flex items-center space-x-3">
+                        <Avatar>
+                          <AvatarImage src={user.avatar || ''} alt={user.full_name} />
+                          <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{user.full_name}</p>
+                          <p className="text-sm text-muted-foreground">@{user.username}</p>
+                        </div>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFollowUser(user.id)}
+                      >
+                        Follow
+                      </Button>
+                    </div>
+                    {user.bio && <p className="mt-2 text-sm">{user.bio}</p>}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
         
-        <TabsContent value="posts" className="space-y-4">
-          {postsLoading ? (
-            <div className="space-y-4">
-              {[1, 2].map((item) => (
-                <div 
-                  key={item} 
-                  className="h-64 glass-card animate-pulse rounded-xl"
-                ></div>
-              ))}
-            </div>
-          ) : debouncedQuery && posts.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No posts found</p>
-          ) : (
-            posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))
-          )}
-        </TabsContent>
+        {activeTab === "posts" && (
+          <div className="space-y-4">
+            {postsLoading ? (
+              <div className="space-y-4">
+                {[1, 2].map((item) => (
+                  <div 
+                    key={item} 
+                    className="h-64 glass-card animate-pulse rounded-xl"
+                  ></div>
+                ))}
+              </div>
+            ) : debouncedQuery && posts.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No posts found</p>
+            ) : (
+              posts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
