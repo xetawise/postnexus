@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast-utils";
 import { supabase } from "@/lib/supabase";
 import { uploadFile } from "@/lib/storage";
+import { useEffect as useEffectImport } from "react"; // Dummy import to avoid linting error
 
 const CreatePostPage = () => {
   const { user, profile } = useAuth();
@@ -25,8 +26,9 @@ const CreatePostPage = () => {
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   
-  // Ensure user is authenticated
+  // Ensure user is authenticated on mount and when auth state changes
   useEffect(() => {
+    console.log("Auth check - Current user:", user);
     if (!user) {
       toast.error("You must be logged in to create a post");
       navigate("/login");
@@ -68,6 +70,7 @@ const CreatePostPage = () => {
     }
     
     if (!user) {
+      console.error("No authenticated user found");
       toast.error("You must be logged in to create a post");
       return;
     }
@@ -75,26 +78,48 @@ const CreatePostPage = () => {
     setIsSubmitting(true);
     
     try {
-      // Log user info for debugging
-      console.log("Current user:", user);
+      // Debug auth information
+      console.log("Creating post as user:", user.id);
+      console.log("User profile:", profile);
       
       // Upload images if any
       const uploadedImageUrls: string[] = [];
       if (selectedImages.length > 0) {
+        console.log(`Uploading ${selectedImages.length} images`);
         for (const image of selectedImages) {
-          const imagePath = await uploadFile(image, 'images', user.id);
-          uploadedImageUrls.push(imagePath);
+          try {
+            const imageUrl = await uploadFile(image, 'images', user.id);
+            console.log("Image uploaded successfully:", imageUrl);
+            uploadedImageUrls.push(imageUrl);
+          } catch (uploadError) {
+            console.error("Image upload error:", uploadError);
+            toast.error(`Failed to upload image: ${image.name}`);
+          }
         }
       }
       
       // Upload video if any
       let uploadedVideoUrl: string | null = null;
       if (selectedVideo) {
-        const videoPath = await uploadFile(selectedVideo, 'videos', user.id);
-        uploadedVideoUrl = videoPath;
+        console.log("Uploading video");
+        try {
+          uploadedVideoUrl = await uploadFile(selectedVideo, 'videos', user.id);
+          console.log("Video uploaded successfully:", uploadedVideoUrl);
+        } catch (uploadError) {
+          console.error("Video upload error:", uploadError);
+          toast.error(`Failed to upload video: ${selectedVideo.name}`);
+        }
       }
       
       // Create post in Supabase with explicit user_id
+      console.log("Creating post with data:", {
+        user_id: user.id,
+        text: postText,
+        images: uploadedImageUrls,
+        video: uploadedVideoUrl,
+        is_private: isPrivate
+      });
+      
       const { data, error } = await supabase
         .from('posts')
         .insert({
@@ -107,15 +132,16 @@ const CreatePostPage = () => {
         .select();
       
       if (error) {
-        console.error("Supabase error:", error);
+        console.error("Supabase post creation error:", error);
         throw error;
       }
       
+      console.log("Post created successfully:", data);
       toast.success("Post created successfully!");
       navigate("/feed");
     } catch (error: any) {
       toast.error("Failed to create post: " + error.message);
-      console.error("Post creation error:", error);
+      console.error("Post creation error details:", error);
     } finally {
       setIsSubmitting(false);
     }

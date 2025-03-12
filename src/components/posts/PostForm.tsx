@@ -124,6 +124,7 @@ const PostForm = ({
     }
     
     if (!user) {
+      console.error("No authenticated user found");
       toast.error("You must be logged in to create a post");
       return;
     }
@@ -131,24 +132,40 @@ const PostForm = ({
     setIsSubmitting(true);
     
     try {
+      console.log("User authenticated as:", user.id);
+      
       // Upload images if any
       const uploadedImageUrls: string[] = [];
       if (selectedImages.length > 0) {
+        console.log(`Uploading ${selectedImages.length} images`);
         for (const image of selectedImages) {
-          const imagePath = await uploadFile(image, 'images', user.id);
-          uploadedImageUrls.push(imagePath);
+          try {
+            const imageUrl = await uploadFile(image, 'images', user.id);
+            console.log("Image uploaded successfully:", imageUrl);
+            uploadedImageUrls.push(imageUrl);
+          } catch (uploadError) {
+            console.error("Image upload error:", uploadError);
+            toast.error(`Failed to upload image: ${image.name}`);
+          }
         }
       }
       
       // Upload video if any
       let uploadedVideoUrl: string | null = null;
       if (selectedVideo) {
-        const videoPath = await uploadFile(selectedVideo, 'videos', user.id);
-        uploadedVideoUrl = videoPath;
+        console.log("Uploading video");
+        try {
+          uploadedVideoUrl = await uploadFile(selectedVideo, 'videos', user.id);
+          console.log("Video uploaded successfully:", uploadedVideoUrl);
+        } catch (uploadError) {
+          console.error("Video upload error:", uploadError);
+          toast.error(`Failed to upload video: ${selectedVideo.name}`);
+        }
       }
       
       if (existingPost) {
         // Update existing post
+        console.log("Updating post:", existingPost.id);
         const { error } = await supabase
           .from('posts')
           .update({
@@ -160,6 +177,7 @@ const PostForm = ({
           .eq('id', existingPost.id);
           
         if (error) {
+          console.error("Update post error:", error);
           toast.error("Failed to update post: " + error.message);
           return;
         }
@@ -172,22 +190,29 @@ const PostForm = ({
         }
       } else {
         // Create new post
+        console.log("Creating new post");
+        const postData = {
+          user_id: user.id,
+          text: postText,
+          images: uploadedImageUrls,
+          video: uploadedVideoUrl,
+          is_private: isPrivate
+        };
+        
+        console.log("Post data:", postData);
+        
         const { data, error } = await supabase
           .from('posts')
-          .insert({
-            user_id: user.id,
-            text: postText,
-            images: uploadedImageUrls,
-            video: uploadedVideoUrl,
-            is_private: isPrivate
-          })
+          .insert(postData)
           .select();
         
         if (error) {
+          console.error("Create post error:", error);
           toast.error("Failed to create post: " + error.message);
           return;
         }
         
+        console.log("Post created:", data);
         toast.success("Post created successfully!");
         
         if (onPostCreated) {
@@ -206,7 +231,7 @@ const PostForm = ({
       }
     } catch (error: any) {
       toast.error("Failed to " + (existingPost ? "update" : "create") + " post: " + error.message);
-      console.error(error);
+      console.error("Post operation error:", error);
     } finally {
       setIsSubmitting(false);
     }
