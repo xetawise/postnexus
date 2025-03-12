@@ -122,17 +122,18 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
     toast.success("Post link copied to clipboard!");
   };
 
-  // Function to properly format image URLs
-  const getImageUrl = (imageUrl: string) => {
+  // Function to properly format image URLs for Supabase storage
+  const getImageUrl = (imagePath: string) => {
     // If the URL is already an absolute URL (including HTTPS or data URLs), return as is
-    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
-      return imageUrl;
+    if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
+      return imagePath;
     }
     
-    // If it's a relative path or just a filename, construct the proper URL from Supabase
-    // Use the Supabase URL directly from the environment variable or hardcoded URL
+    // Get the Supabase URL from env vars or use the default
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cosyqmkvzvdlkzaxmdkd.supabase.co';
-    return `${supabaseUrl}/storage/v1/object/public/${imageUrl}`;
+    
+    // Format the storage URL properly
+    return `${supabaseUrl}/storage/v1/object/public/${imagePath}`;
   };
 
   if (!post.profile) return null;

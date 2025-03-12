@@ -17,32 +17,61 @@ const CreatePostPage = () => {
   const navigate = useNavigate();
   
   const [postText, setPostText] = useState("");
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
-      const fileURLs = filesArray.map(file => URL.createObjectURL(file));
-      setSelectedImages(prev => [...prev, ...fileURLs]);
+      setSelectedImages(prev => [...prev, ...filesArray]);
+      
+      const newImageUrls = filesArray.map(file => URL.createObjectURL(file));
+      setImagePreviewUrls(prev => [...prev, ...newImageUrls]);
     }
   };
   
   const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const fileURL = URL.createObjectURL(e.target.files[0]);
-      setSelectedVideo(fileURL);
+      const file = e.target.files[0];
+      setSelectedVideo(file);
+      setVideoPreviewUrl(URL.createObjectURL(file));
     }
   };
   
   const removeImage = (indexToRemove: number) => {
     setSelectedImages(prev => prev.filter((_, index) => index !== indexToRemove));
+    setImagePreviewUrls(prev => prev.filter((_, index) => index !== indexToRemove));
   };
   
   const removeVideo = () => {
     setSelectedVideo(null);
+    setVideoPreviewUrl(null);
+  };
+  
+  const uploadFile = async (file: File, bucket: string) => {
+    if (!user) {
+      toast.error("You must be logged in to upload files");
+      throw new Error("User not authenticated");
+    }
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file);
+      
+    if (error) {
+      console.error(`Error uploading to ${bucket}:`, error);
+      throw error;
+    }
+    
+    return filePath;
   };
   
   const handleSubmit = async () => {
@@ -51,17 +80,38 @@ const CreatePostPage = () => {
       return;
     }
     
+    if (!user) {
+      toast.error("You must be logged in to create a post");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
+      // Upload images if any
+      const uploadedImageUrls: string[] = [];
+      if (selectedImages.length > 0) {
+        for (const image of selectedImages) {
+          const imagePath = await uploadFile(image, 'images');
+          uploadedImageUrls.push(imagePath);
+        }
+      }
+      
+      // Upload video if any
+      let uploadedVideoUrl: string | null = null;
+      if (selectedVideo) {
+        const videoPath = await uploadFile(selectedVideo, 'videos');
+        uploadedVideoUrl = videoPath;
+      }
+      
       // Create post in Supabase
       const { data, error } = await supabase
         .from('posts')
         .insert({
-          user_id: user?.id,
+          user_id: user.id,
           text: postText,
-          images: selectedImages,
-          video: selectedVideo,
+          images: uploadedImageUrls,
+          video: uploadedVideoUrl,
           is_private: isPrivate
         })
         .select();
@@ -72,8 +122,8 @@ const CreatePostPage = () => {
       
       toast.success("Post created successfully!");
       navigate("/feed");
-    } catch (error) {
-      toast.error("Failed to create post");
+    } catch (error: any) {
+      toast.error("Failed to create post: " + error.message);
       console.error(error);
     } finally {
       setIsSubmitting(false);

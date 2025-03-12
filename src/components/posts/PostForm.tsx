@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Image, X, File, Send } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -54,23 +53,25 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
   };
   
   const uploadFile = async (file: File, bucket: string) => {
+    if (!user) {
+      toast.error("You must be logged in to upload files");
+      throw new Error("User not authenticated");
+    }
+    
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-    const filePath = `${user?.id}/${fileName}`;
+    const filePath = `${user.id}/${fileName}`;
     
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(filePath, file);
       
     if (error) {
+      console.error(`Error uploading to ${bucket}:`, error);
       throw error;
     }
     
-    const { data: publicUrl } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
-      
-    return publicUrl.publicUrl;
+    return filePath;
   };
   
   const handleSubmit = async () => {
@@ -90,34 +91,17 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
       // Upload images if any
       const uploadedImageUrls: string[] = [];
       if (selectedImages.length > 0) {
-        // Create images bucket if it doesn't exist
-        const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('images');
-        
-        if (bucketError && bucketError.message.includes('does not exist')) {
-          await supabase.storage.createBucket('images', {
-            public: true
-          });
-        }
-        
         for (const image of selectedImages) {
-          const imageUrl = await uploadFile(image, 'images');
-          uploadedImageUrls.push(imageUrl);
+          const imagePath = await uploadFile(image, 'images');
+          uploadedImageUrls.push(imagePath);
         }
       }
       
       // Upload video if any
       let uploadedVideoUrl: string | null = null;
       if (selectedVideo) {
-        // Create videos bucket if it doesn't exist
-        const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('videos');
-        
-        if (bucketError && bucketError.message.includes('does not exist')) {
-          await supabase.storage.createBucket('videos', {
-            public: true
-          });
-        }
-        
-        uploadedVideoUrl = await uploadFile(selectedVideo, 'videos');
+        const videoPath = await uploadFile(selectedVideo, 'videos');
+        uploadedVideoUrl = videoPath;
       }
       
       // Create post

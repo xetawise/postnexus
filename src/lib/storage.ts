@@ -40,9 +40,14 @@ export const uploadFile = async (file: File, bucket: string, userId: string) => 
     throw error;
   }
   
-  const { data: publicUrl } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(filePath);
-    
-  return publicUrl.publicUrl;
+  return filePath;
+};
+
+export const getFileUrl = (filePath: string, bucket: string) => {
+  if (filePath.startsWith('http') || filePath.startsWith('data:')) {
+    return filePath;
+  }
+  
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cosyqmkvzvdlkzaxmdkd.supabase.co';
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${filePath}`;
 };
