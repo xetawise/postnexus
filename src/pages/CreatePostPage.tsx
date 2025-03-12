@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Image, X, File, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -24,6 +24,14 @@ const CreatePostPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  
+  // Ensure user is authenticated
+  useEffect(() => {
+    if (!user) {
+      toast.error("You must be logged in to create a post");
+      navigate("/login");
+    }
+  }, [user, navigate]);
   
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -67,6 +75,9 @@ const CreatePostPage = () => {
     setIsSubmitting(true);
     
     try {
+      // Log user info for debugging
+      console.log("Current user:", user);
+      
       // Upload images if any
       const uploadedImageUrls: string[] = [];
       if (selectedImages.length > 0) {
@@ -83,7 +94,7 @@ const CreatePostPage = () => {
         uploadedVideoUrl = videoPath;
       }
       
-      // Create post in Supabase
+      // Create post in Supabase with explicit user_id
       const { data, error } = await supabase
         .from('posts')
         .insert({
@@ -94,8 +105,9 @@ const CreatePostPage = () => {
           is_private: isPrivate
         })
         .select();
-        
+      
       if (error) {
+        console.error("Supabase error:", error);
         throw error;
       }
       
@@ -103,7 +115,7 @@ const CreatePostPage = () => {
       navigate("/feed");
     } catch (error: any) {
       toast.error("Failed to create post: " + error.message);
-      console.error(error);
+      console.error("Post creation error:", error);
     } finally {
       setIsSubmitting(false);
     }
