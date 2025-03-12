@@ -130,8 +130,9 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
     }
     
     // If it's a relative path or just a filename, construct the proper URL from Supabase
-    // You may need to adjust this based on your actual storage bucket configuration
-    return `${supabase.getConfig().url}/storage/v1/object/public/${imageUrl}`;
+    // Use the Supabase URL directly from the environment variable or hardcoded URL
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cosyqmkvzvdlkzaxmdkd.supabase.co';
+    return `${supabaseUrl}/storage/v1/object/public/${imageUrl}`;
   };
 
   if (!post.profile) return null;
