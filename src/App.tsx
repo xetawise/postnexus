@@ -12,7 +12,6 @@ import SignupPage from "./pages/SignupPage";
 import ProfilePage from "./pages/ProfilePage";
 import CreatePostPage from "./pages/CreatePostPage";
 import SearchPage from "./pages/SearchPage";
-import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
@@ -52,12 +51,6 @@ const App = () => (
             <Route path="/search" element={
               <ProtectedRoute>
                 <SearchPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/notifications" element={
-              <ProtectedRoute>
-                <NotificationsPage />
               </ProtectedRoute>
             } />
             

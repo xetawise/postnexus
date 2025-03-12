@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { Home, Search, Bell, UserCircle, PlusSquare, Settings } from "lucide-react";
+import { Home, Search, UserCircle, PlusSquare, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
@@ -23,11 +23,6 @@ export function MainNavigation() {
       name: "Create",
       path: "/create",
       icon: PlusSquare
-    },
-    {
-      name: "Notifications",
-      path: "/notifications",
-      icon: Bell
     },
     {
       name: "Profile",
@@ -97,11 +92,6 @@ export function MobileNavigation() {
       name: "Create",
       path: "/create",
       icon: PlusSquare
-    },
-    {
-      name: "Notifications",
-      path: "/notifications",
-      icon: Bell
     },
     {
       name: "Profile",

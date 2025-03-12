@@ -122,6 +122,18 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
     toast.success("Post link copied to clipboard!");
   };
 
+  // Function to properly format image URLs
+  const getImageUrl = (imageUrl: string) => {
+    // If the URL is already an absolute URL (including HTTPS or data URLs), return as is
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
+      return imageUrl;
+    }
+    
+    // If it's a relative path or just a filename, construct the proper URL from Supabase
+    // You may need to adjust this based on your actual storage bucket configuration
+    return `${supabase.getConfig().url}/storage/v1/object/public/${imageUrl}`;
+  };
+
   if (!post.profile) return null;
 
   return (
@@ -154,7 +166,7 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
           <div className="overflow-hidden rounded-xl mb-2">
             {post.images.length === 1 ? (
               <img 
-                src={post.images[0]} 
+                src={getImageUrl(post.images[0])} 
                 alt="Post" 
                 className="w-full h-auto max-h-96 object-cover rounded-xl"
                 loading="lazy"
@@ -165,7 +177,7 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
                   {post.images.map((image, index) => (
                     <CarouselItem key={index}>
                       <img 
-                        src={image} 
+                        src={getImageUrl(image)} 
                         alt={`Post image ${index + 1}`} 
                         className="w-full h-auto max-h-96 object-cover rounded-xl"
                         loading="lazy"
