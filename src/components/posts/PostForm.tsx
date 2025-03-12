@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Image, X, File, Send } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast-utils";
 import { supabase } from "@/lib/supabase";
+import { uploadFile } from "@/lib/storage";
 
 interface PostFormProps {
   onPostCreated?: () => void;
@@ -52,28 +54,6 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
     setVideoPreviewUrl(null);
   };
   
-  const uploadFile = async (file: File, bucket: string) => {
-    if (!user) {
-      toast.error("You must be logged in to upload files");
-      throw new Error("User not authenticated");
-    }
-    
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-    const filePath = `${user.id}/${fileName}`;
-    
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file);
-      
-    if (error) {
-      console.error(`Error uploading to ${bucket}:`, error);
-      throw error;
-    }
-    
-    return filePath;
-  };
-  
   const handleSubmit = async () => {
     if (!postText && selectedImages.length === 0 && !selectedVideo) {
       toast.error("Your post cannot be empty");
@@ -92,7 +72,7 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
       const uploadedImageUrls: string[] = [];
       if (selectedImages.length > 0) {
         for (const image of selectedImages) {
-          const imagePath = await uploadFile(image, 'images');
+          const imagePath = await uploadFile(image, 'images', user.id);
           uploadedImageUrls.push(imagePath);
         }
       }
@@ -100,7 +80,7 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
       // Upload video if any
       let uploadedVideoUrl: string | null = null;
       if (selectedVideo) {
-        const videoPath = await uploadFile(selectedVideo, 'videos');
+        const videoPath = await uploadFile(selectedVideo, 'videos', user.id);
         uploadedVideoUrl = videoPath;
       }
       
@@ -159,10 +139,10 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
             
             {imagePreviewUrls.length > 0 && (
               <div className="grid grid-cols-2 gap-2 mt-2">
-                {imagePreviewUrls.map((image, index) => (
+                {imagePreviewUrls.map((imageUrl, index) => (
                   <div key={index} className="relative">
                     <img 
-                      src={image} 
+                      src={imageUrl} 
                       alt={`Preview ${index}`} 
                       className="w-full h-32 object-cover rounded-lg"
                     />
