@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast-utils";
 import { supabase } from "@/lib/supabase";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, getFileUrl } from "@/lib/storage";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,7 +118,7 @@ const PostForm = ({
   };
   
   const handleSubmit = async () => {
-    if (!postText && selectedImages.length === 0 && !selectedVideo) {
+    if (!postText && selectedImages.length === 0 && !selectedVideo && imagePreviewUrls.length === 0 && !videoPreviewUrl) {
       toast.error("Your post cannot be empty");
       return;
     }
@@ -163,6 +163,11 @@ const PostForm = ({
         }
       }
       
+      // Prepare existing images that were not newly uploaded
+      const existingImageUrls = existingPost ? 
+        existingPost.images.filter(img => !img.startsWith('blob:')) : 
+        [];
+      
       if (existingPost) {
         // Update existing post
         console.log("Updating post:", existingPost.id);
@@ -170,7 +175,7 @@ const PostForm = ({
           .from('posts')
           .update({
             text: postText,
-            images: [...(existingPost.images || []), ...uploadedImageUrls],
+            images: [...existingImageUrls, ...uploadedImageUrls],
             video: uploadedVideoUrl || existingPost.video,
             is_private: isPrivate
           })
@@ -288,9 +293,13 @@ const PostForm = ({
                 {imagePreviewUrls.map((imageUrl, index) => (
                   <div key={index} className="relative">
                     <img 
-                      src={imageUrl} 
+                      src={imageUrl.startsWith('blob:') ? imageUrl : getFileUrl(imageUrl, 'images')} 
                       alt={`Preview ${index}`} 
                       className="w-full h-32 object-cover rounded-lg"
+                      onError={(e) => {
+                        console.error("Error loading image:", imageUrl);
+                        (e.target as HTMLImageElement).src = '/placeholder.svg';
+                      }}
                     />
                     {(!existingPost || isEditing) && (
                       <Button
@@ -310,9 +319,14 @@ const PostForm = ({
             {videoPreviewUrl && (
               <div className="relative mt-2">
                 <video 
-                  src={videoPreviewUrl} 
+                  src={videoPreviewUrl.startsWith('blob:') ? videoPreviewUrl : getFileUrl(videoPreviewUrl, 'videos')} 
                   controls 
                   className="w-full h-auto rounded-lg"
+                  onError={(e) => {
+                    console.error("Error loading video:", videoPreviewUrl);
+                    const video = e.target as HTMLVideoElement;
+                    video.poster = '/placeholder.svg';
+                  }}
                 />
                 {(!existingPost || isEditing) && (
                   <Button

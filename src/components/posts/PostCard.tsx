@@ -1,15 +1,20 @@
 
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { formatDistance } from "date-fns";
-import { Heart, MessageCircle, Share2, MoreHorizontal } from "lucide-react";
+import React, { useState } from "react";
+import { Heart, MessageCircle, Share, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast-utils";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, type Post } from "@/lib/supabase";
+import { getFileUrl } from "@/lib/storage";
+import { formatDistanceToNow } from "date-fns";
 
 interface PostCardProps {
   post: Post;
@@ -18,188 +23,190 @@ interface PostCardProps {
 
 const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
   const { user } = useAuth();
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(post.likes);
-  const [showComments, setShowComments] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [showFullText, setShowFullText] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
-  useEffect(() => {
-    // Check if user has liked this post
-    const checkIfLiked = async () => {
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('post_likes')
-        .select('*')
-        .eq('post_id', post.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (error) {
-        console.error("Error checking like status:", error);
-        return;
-      }
-      
-      setLiked(!!data);
-    };
-    
-    checkIfLiked();
-  }, [post.id, user]);
-  
-  const formattedDate = formatDistance(
-    new Date(post.created_at),
-    new Date(),
-    { addSuffix: true }
-  );
-  
-  const handleLike = async () => {
+  const handleLikeToggle = async () => {
     if (!user) {
-      toast.error("You must be logged in to like posts");
+      toast.error("You must be logged in to like a post");
       return;
     }
     
     try {
-      if (liked) {
+      if (isLiked) {
         // Unlike post
-        const { error } = await supabase
+        await supabase
           .from('post_likes')
           .delete()
-          .eq('post_id', post.id)
-          .eq('user_id', user.id);
-        
-        if (error) throw error;
-        
-        setLikeCount(prev => prev - 1);
-        setLiked(false);
+          .match({ post_id: post.id, user_id: user.id });
+          
+        post.likes = Math.max(0, post.likes - 1);
       } else {
         // Like post
-        const { error } = await supabase
-          .from('post_likes')
-          .insert({
-            post_id: post.id,
-            user_id: user.id
-          });
-        
-        if (error) throw error;
-        
-        setLikeCount(prev => prev + 1);
-        setLiked(true);
-        toast.success("Post liked!");
-        
-        // Update the post's like count
         await supabase
-          .from('posts')
-          .update({ likes: likeCount + 1 })
-          .eq('id', post.id);
-        
-        // Create notification for the post owner
-        if (user.id !== post.user_id) {
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: post.user_id,
-              type: 'like',
-              initiator_id: user.id,
-              content_id: post.id
-            });
-        }
+          .from('post_likes')
+          .insert({ post_id: post.id, user_id: user.id });
+          
+        post.likes = post.likes + 1;
       }
       
-      if (onPostUpdated) {
-        onPostUpdated();
+      setIsLiked(!isLiked);
+      if (onPostUpdated) onPostUpdated();
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      toast.error("Failed to update like status");
+    }
+  };
+  
+  React.useEffect(() => {
+    const checkLikeStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const { data } = await supabase
+          .from('post_likes')
+          .select('*')
+          .eq('post_id', post.id)
+          .eq('user_id', user.id);
+          
+        setIsLiked(data && data.length > 0);
+      } catch (error) {
+        console.error("Error checking like status:", error);
       }
-    } catch (error: any) {
-      toast.error("Failed to update like: " + error.message);
-      console.error(error);
+    };
+    
+    checkLikeStatus();
+  }, [post.id, user]);
+  
+  const handleSharePost = () => {
+    // For now just show a toast, in the future could implement actual sharing
+    toast.success("Share feature coming soon!");
+  };
+  
+  const handleDeletePost = async () => {
+    if (!user || user.id !== post.user_id) {
+      toast.error("You can only delete your own posts");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id);
+        
+      if (error) throw error;
+      
+      toast.success("Post deleted successfully");
+      if (onPostUpdated) onPostUpdated();
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast.error("Failed to delete post");
     }
   };
   
-  const handleComment = () => {
-    setShowComments(!showComments);
+  const formatPostTime = (dateString: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch (error) {
+      return 'some time ago';
+    }
   };
   
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.origin + `/post/${post.id}`);
-    toast.success("Post link copied to clipboard!");
-  };
-
-  // Function to properly format image URLs for Supabase storage
-  const getImageUrl = (imagePath: string) => {
-    // If the URL is already an absolute URL (including HTTPS or data URLs), return as is
-    if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
-      return imagePath;
-    }
-    
-    // Get the Supabase URL from env vars or use the default
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cosyqmkvzvdlkzaxmdkd.supabase.co';
-    
-    // Format the storage URL properly
-    return `${supabaseUrl}/storage/v1/object/public/${imagePath}`;
-  };
-
-  if (!post.profile) return null;
-
+  const MAX_TEXT_LENGTH = 200;
+  const hasLongText = post.text && post.text.length > MAX_TEXT_LENGTH;
+  const displayText = showFullText || !hasLongText 
+    ? post.text 
+    : `${post.text.substring(0, MAX_TEXT_LENGTH)}...`;
+  
   return (
-    <Card className="mb-6 overflow-hidden glass-card">
-      <CardHeader className="p-4 pb-2">
-        <div className="flex justify-between items-center">
-          <Link to={`/profile/${post.profile.username}`} className="flex items-center space-x-3">
+    <Card className="mb-4 glass-card overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start">
+          <div className="flex space-x-3">
             <Avatar className="h-10 w-10 border border-border">
-              <AvatarImage src={post.profile.avatar || undefined} alt={post.profile.username} />
-              <AvatarFallback>{post.profile.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={post.profile?.avatar} alt={post.profile?.username} />
+              <AvatarFallback>
+                {post.profile?.username?.substring(0, 2).toUpperCase() || 'NA'}
+              </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
-              <span className="font-medium text-sm">{post.profile.full_name}</span>
-              <span className="text-xs text-muted-foreground">@{post.profile.username}</span>
+            
+            <div>
+              <div className="font-medium">{post.profile?.full_name}</div>
+              <div className="text-xs text-muted-foreground flex items-center space-x-1">
+                <span>@{post.profile?.username}</span>
+                <span>•</span>
+                <span>{formatPostTime(post.created_at)}</span>
+              </div>
             </div>
-          </Link>
-          <div className="flex items-center space-x-1">
-            <span className="text-xs text-muted-foreground">{formattedDate}</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-              <MoreHorizontal size={18} />
-            </Button>
           </div>
+          
+          {user && user.id === post.user_id && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                  <MoreHorizontal size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={handleDeletePost}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-      </CardHeader>
-      
-      <CardContent className="p-4 pt-2">
-        <p className="mb-4 text-sm whitespace-pre-line">{post.text}</p>
         
-        {post.images && post.images.length > 0 && (
-          <div className="overflow-hidden rounded-xl mb-2">
-            {post.images.length === 1 ? (
-              <img 
-                src={getImageUrl(post.images[0])} 
-                alt="Post" 
-                className="w-full h-auto max-h-96 object-cover rounded-xl"
-                loading="lazy"
-              />
-            ) : (
-              <Carousel className="w-full">
-                <CarouselContent>
-                  {post.images.map((image, index) => (
-                    <CarouselItem key={index}>
-                      <img 
-                        src={getImageUrl(image)} 
-                        alt={`Post image ${index + 1}`} 
-                        className="w-full h-auto max-h-96 object-cover rounded-xl"
-                        loading="lazy"
-                      />
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                <CarouselPrevious className="left-2" />
-                <CarouselNext className="right-2" />
-              </Carousel>
+        {post.text && (
+          <div className="mt-3 text-sm">
+            <p className="whitespace-pre-wrap">{displayText}</p>
+            {hasLongText && (
+              <button
+                onClick={() => setShowFullText(!showFullText)}
+                className="text-primary text-xs mt-1"
+              >
+                {showFullText ? 'Show less' : 'Show more'}
+              </button>
             )}
           </div>
         )}
         
+        {post.images && post.images.length > 0 && (
+          <div className={`mt-3 grid gap-2 ${post.images.length === 1 ? '' : 'grid-cols-2'}`}>
+            {post.images.map((image, index) => (
+              <div 
+                key={index} 
+                className={`rounded-lg overflow-hidden ${post.images.length === 1 ? 'max-h-96' : 'h-48'}`}
+              >
+                <img 
+                  src={getFileUrl(image, 'images')} 
+                  alt={`Post image ${index + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error("Error loading image:", image);
+                    (e.target as HTMLImageElement).src = '/placeholder.svg';
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        
         {post.video && (
-          <div className="overflow-hidden rounded-xl mb-2">
+          <div className="mt-3 rounded-lg overflow-hidden">
             <video 
-              src={post.video} 
+              src={getFileUrl(post.video, 'videos')} 
               controls 
-              className="w-full h-auto max-h-96 object-cover rounded-xl"
+              className="w-full max-h-96"
+              onError={(e) => {
+                console.error("Error loading video:", post.video);
+                const video = e.target as HTMLVideoElement;
+                video.poster = '/placeholder.svg';
+              }}
             />
           </div>
         )}
@@ -209,35 +216,30 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={handleLike}
-          className="flex items-center space-x-1 rounded-full px-4"
+          className="text-xs flex items-center"
+          onClick={handleLikeToggle}
         >
-          {liked ? (
-            <Heart size={18} className="text-red-500 fill-current" />
-          ) : (
-            <Heart size={18} />
-          )}
-          <span>{likeCount}</span>
+          <Heart size={16} className={`mr-1 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+          {post.likes || 0}
         </Button>
         
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={handleComment}
-          className="flex items-center space-x-1 rounded-full px-4"
+          className="text-xs flex items-center"
         >
-          <MessageCircle size={18} />
-          <span>{post.comments}</span>
+          <MessageCircle size={16} className="mr-1" />
+          {post.comments || 0}
         </Button>
         
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={handleShare}
-          className="flex items-center space-x-1 rounded-full px-4"
+          className="text-xs flex items-center"
+          onClick={handleSharePost}
         >
-          <Share2 size={18} />
-          <span>{post.shares}</span>
+          <Share size={16} className="mr-1" />
+          {post.shares || 0}
         </Button>
       </CardFooter>
     </Card>

@@ -1,4 +1,3 @@
-
 import { supabase } from "./supabase";
 
 export const ensureBucketExists = async (bucketName: string) => {
@@ -74,10 +73,12 @@ export const uploadFile = async (file: File, bucket: string, userId: string) => 
 export const getFileUrl = (filePath: string, bucket: string) => {
   if (!filePath) return null;
   
+  // If it's already a full URL, just return it
   if (filePath.startsWith('http') || filePath.startsWith('data:')) {
     return filePath;
   }
   
+  // Otherwise, get the public URL from Supabase
   const { data } = supabase.storage
     .from(bucket)
     .getPublicUrl(filePath);
