@@ -19,6 +19,9 @@ export const ensureBucketExists = async (bucketName: string) => {
       
       console.log(`Bucket ${bucketName} created successfully`);
       return true;
+    } else if (error) {
+      console.error(`Error checking bucket ${bucketName}:`, error);
+      return false;
     }
     
     console.log(`Bucket ${bucketName} already exists`);
@@ -30,6 +33,10 @@ export const ensureBucketExists = async (bucketName: string) => {
 };
 
 export const uploadFile = async (file: File, bucket: string, userId: string) => {
+  if (!userId) {
+    throw new Error('User ID is required for file upload');
+  }
+  
   // First ensure the bucket exists
   const bucketExists = await ensureBucketExists(bucket);
   if (!bucketExists) {
@@ -44,7 +51,10 @@ export const uploadFile = async (file: File, bucket: string, userId: string) => 
   
   const { data, error } = await supabase.storage
     .from(bucket)
-    .upload(filePath, file);
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
     
   if (error) {
     console.error(`Error uploading file to ${bucket}/${filePath}:`, error);
@@ -73,4 +83,28 @@ export const getFileUrl = (filePath: string, bucket: string) => {
     .getPublicUrl(filePath);
     
   return data.publicUrl;
+};
+
+export const deleteFile = async (filePath: string, bucket: string) => {
+  if (!filePath) return false;
+  
+  // If it's already a URL, extract just the path
+  if (filePath.startsWith('http')) {
+    const url = new URL(filePath);
+    const pathParts = url.pathname.split('/');
+    // Remove the bucket name and 'object' from the path
+    pathParts.splice(0, 3);
+    filePath = pathParts.join('/');
+  }
+  
+  const { error } = await supabase.storage
+    .from(bucket)
+    .remove([filePath]);
+    
+  if (error) {
+    console.error(`Error deleting file ${filePath} from ${bucket}:`, error);
+    return false;
+  }
+  
+  return true;
 };
