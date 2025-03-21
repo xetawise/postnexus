@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Heart, MessageCircle, Share, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,7 +34,6 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
     
     try {
       if (isLiked) {
-        // Unlike post
         await supabase
           .from('post_likes')
           .delete()
@@ -43,7 +41,6 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
           
         post.likes = Math.max(0, post.likes - 1);
       } else {
-        // Like post
         await supabase
           .from('post_likes')
           .insert({ post_id: post.id, user_id: user.id });
@@ -80,7 +77,6 @@ const PostCard = ({ post, onPostUpdated }: PostCardProps) => {
   }, [post.id, user]);
   
   const handleSharePost = () => {
-    // For now just show a toast, in the future could implement actual sharing
     toast.success("Share feature coming soon!");
   };
   

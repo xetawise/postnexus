@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Image, X, File, Send, MoreVertical } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -134,8 +133,12 @@ const PostForm = ({
     try {
       console.log("User authenticated as:", user.id);
       
-      // Upload images if any
       const uploadedImageUrls: string[] = [];
+      
+      const existingImageUrls = existingPost ? 
+        existingPost.images.filter(img => !img.startsWith('blob:')) : 
+        [];
+      
       if (selectedImages.length > 0) {
         console.log(`Uploading ${selectedImages.length} images`);
         for (const image of selectedImages) {
@@ -150,7 +153,6 @@ const PostForm = ({
         }
       }
       
-      // Upload video if any
       let uploadedVideoUrl: string | null = null;
       if (selectedVideo) {
         console.log("Uploading video");
@@ -163,20 +165,16 @@ const PostForm = ({
         }
       }
       
-      // Prepare existing images that were not newly uploaded
-      const existingImageUrls = existingPost ? 
-        existingPost.images.filter(img => !img.startsWith('blob:')) : 
-        [];
+      const allImageUrls = [...existingImageUrls, ...uploadedImageUrls];
       
       if (existingPost) {
-        // Update existing post
         console.log("Updating post:", existingPost.id);
         const { error } = await supabase
           .from('posts')
           .update({
             text: postText,
-            images: [...existingImageUrls, ...uploadedImageUrls],
-            video: uploadedVideoUrl || existingPost.video,
+            images: allImageUrls,
+            video: uploadedVideoUrl || (existingPost.video && !existingPost.video.startsWith('blob:') ? existingPost.video : null),
             is_private: isPrivate
           })
           .eq('id', existingPost.id);
@@ -194,12 +192,11 @@ const PostForm = ({
           onPostUpdated();
         }
       } else {
-        // Create new post
         console.log("Creating new post");
         const postData = {
           user_id: user.id,
           text: postText,
-          images: uploadedImageUrls,
+          images: allImageUrls,
           video: uploadedVideoUrl,
           is_private: isPrivate
         };
@@ -225,7 +222,6 @@ const PostForm = ({
         }
       }
       
-      // Reset form if creating a new post
       if (!existingPost) {
         setPostText("");
         setSelectedImages([]);

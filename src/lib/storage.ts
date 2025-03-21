@@ -2,9 +2,12 @@ import { supabase } from "./supabase";
 
 export const ensureBucketExists = async (bucketName: string) => {
   try {
-    const { data: bucket, error } = await supabase.storage.getBucket(bucketName);
+    // First check if the bucket exists
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
     
-    if (error && error.message.includes('does not exist')) {
+    if (!bucketExists) {
+      console.log(`Bucket ${bucketName} not found, attempting to create it`);
       // Create the bucket if it doesn't exist
       const { data, error: createError } = await supabase.storage.createBucket(bucketName, {
         public: true,
@@ -18,9 +21,6 @@ export const ensureBucketExists = async (bucketName: string) => {
       
       console.log(`Bucket ${bucketName} created successfully`);
       return true;
-    } else if (error) {
-      console.error(`Error checking bucket ${bucketName}:`, error);
-      return false;
     }
     
     console.log(`Bucket ${bucketName} already exists`);
@@ -78,6 +78,12 @@ export const getFileUrl = (filePath: string, bucket: string) => {
     return filePath;
   }
   
+  // If it starts with blob:, it means it's a temporary URL that hasn't been saved to Supabase yet
+  if (filePath.startsWith('blob:')) {
+    console.warn('Attempted to use blob URL that may not persist:', filePath);
+    return '/placeholder.svg'; // Return a placeholder instead of the blob URL
+  }
+  
   // Otherwise, get the public URL from Supabase
   const { data } = supabase.storage
     .from(bucket)
@@ -89,13 +95,23 @@ export const getFileUrl = (filePath: string, bucket: string) => {
 export const deleteFile = async (filePath: string, bucket: string) => {
   if (!filePath) return false;
   
+  // Don't try to delete blob URLs or placeholders
+  if (filePath.startsWith('blob:') || filePath.startsWith('data:') || filePath === '/placeholder.svg') {
+    return true;
+  }
+  
   // If it's already a URL, extract just the path
   if (filePath.startsWith('http')) {
-    const url = new URL(filePath);
-    const pathParts = url.pathname.split('/');
-    // Remove the bucket name and 'object' from the path
-    pathParts.splice(0, 3);
-    filePath = pathParts.join('/');
+    try {
+      const url = new URL(filePath);
+      const pathParts = url.pathname.split('/');
+      // Remove the bucket name and 'object' from the path
+      pathParts.splice(0, 3);
+      filePath = pathParts.join('/');
+    } catch (error) {
+      console.error('Error parsing file URL:', error);
+      return false;
+    }
   }
   
   const { error } = await supabase.storage
