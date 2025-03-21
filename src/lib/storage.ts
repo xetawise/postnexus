@@ -73,8 +73,8 @@ export const uploadFile = async (file: File, bucket: string, userId: string) => 
 export const getFileUrl = (filePath: string, bucket: string) => {
   if (!filePath) return null;
   
-  // If it's already a full URL, just return it
-  if (filePath.startsWith('http') || filePath.startsWith('data:')) {
+  // If it's already a full URL but not a blob URL, just return it
+  if (filePath.startsWith('http') && !filePath.includes('blob:')) {
     return filePath;
   }
   
@@ -84,12 +84,22 @@ export const getFileUrl = (filePath: string, bucket: string) => {
     return '/placeholder.svg'; // Return a placeholder instead of the blob URL
   }
   
+  // Handle data URLs (e.g., base64 encoded images)
+  if (filePath.startsWith('data:')) {
+    return filePath;
+  }
+  
   // Otherwise, get the public URL from Supabase
-  const { data } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(filePath);
+  try {
+    const { data } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
     
-  return data.publicUrl;
+    return data.publicUrl;
+  } catch (error) {
+    console.error(`Error getting public URL for ${bucket}/${filePath}:`, error);
+    return '/placeholder.svg';
+  }
 };
 
 export const deleteFile = async (filePath: string, bucket: string) => {
@@ -114,14 +124,19 @@ export const deleteFile = async (filePath: string, bucket: string) => {
     }
   }
   
-  const { error } = await supabase.storage
-    .from(bucket)
-    .remove([filePath]);
+  try {
+    const { error } = await supabase.storage
+      .from(bucket)
+      .remove([filePath]);
+      
+    if (error) {
+      console.error(`Error deleting file ${filePath} from ${bucket}:`, error);
+      return false;
+    }
     
-  if (error) {
+    return true;
+  } catch (error) {
     console.error(`Error deleting file ${filePath} from ${bucket}:`, error);
     return false;
   }
-  
-  return true;
 };
