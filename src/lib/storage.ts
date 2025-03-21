@@ -1,9 +1,16 @@
+
 import { supabase } from "./supabase";
 
 export const ensureBucketExists = async (bucketName: string) => {
   try {
     // First check if the bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error(`Error listing buckets:`, listError);
+      return false;
+    }
+    
     const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
     
     if (!bucketExists) {
